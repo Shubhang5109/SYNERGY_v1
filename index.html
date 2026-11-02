@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SYNERGY Simulator</title>
+<style>
+:root{--bg:#fff;--fg:#1d2433;--mut:#5b6577;--card:#f4f6fa;--bd:#d9dee8;--ac:#1f5fbf;--ok:#17803d;--bad:#b42318;--grid:#e6e9f0}
+@media(prefers-color-scheme:dark){:root{--bg:#12161f;--fg:#e8ecf4;--mut:#9aa5b8;--card:#1a2030;--bd:#2c3548;--ac:#6ea8fe;--ok:#4ade80;--bad:#f87171;--grid:#252d3f}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header,main,footer{max-width:1100px;margin:0 auto;padding:14px 16px}
+h1{margin:0;font-size:1.7rem}h2{font-size:1.1rem;margin:22px 0 8px}.sub,.sm{color:var(--mut);font-size:.85rem;margin:2px 0}
+fieldset{border:1px solid var(--bd);border-radius:8px;margin:0 0 12px;padding:10px 12px}legend{font-weight:600;padding:0 6px}
+.g{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px 12px}details{margin-top:8px}summary{cursor:pointer;color:var(--ac)}
+label{font-size:.82rem;color:var(--mut);display:flex;flex-direction:column;gap:2px}
+input{padding:6px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--fg);font:inherit}
+button{padding:7px 14px;border:1px solid var(--ac);border-radius:6px;background:var(--ac);color:var(--bg);font:inherit;cursor:pointer;margin-right:8px}
+button.s{background:none;color:var(--ac)}#err{color:var(--bad);margin:6px 0}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(235px,1fr));gap:10px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:10px}.card b{display:block;font-size:1.12rem}.card span{font-size:.78rem;color:var(--mut)}
+.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(440px,100%),1fr));gap:12px}
+.ch{border:1px solid var(--bd);border-radius:8px;padding:8px}.ch b{font-size:.9rem}canvas{width:100%;height:260px;display:block}
+.ok{color:var(--ok)}.no{color:var(--bad)}li{margin:3px 0}
+</style></head><body>
+<header>
+<h1>SYNERGY Simulator</h1>
+<p class="sub">Stochastic nonlinear dynamical framework for antibiotic–phytochemical interactions: interactive implementation of the model.</p>
+<p class="au"><b>Shubhang Jha</b><sup>1</sup>, Rachana Yadav<sup>1</sup>, Sandeep Kumar<sup>2</sup>, Rachit Chaudhary<sup>3</sup>, Deepa Khare<sup>1,*</sup></p>
+<p class="sm"><sup>1</sup>Department of Biotechnology, Bennett University, Greater Noida, India · <sup>2</sup>Department of Basic Sciences (Physics), Manav Rachana University, Faridabad, India · <sup>3</sup>School of Astronautics, Northwestern Polytechnical University, Xi’an, China · *Corresponding author: Deepa Khare</p>
+<p class="sm">Outputs are model predictions intended as a guideline for experimental design. They are not experimental validation, and the default values are illustrative, not fitted to data.</p>
+</header>
+<main>
+<h2>1. Inputs</h2>
+<div id="form"></div>
+<p><button id="rst" class="s">Reset defaults</button><button id="csv">Download trajectory (CSV)</button></p>
+<div id="err"></div>
+<h2>2. Model readouts</h2><div class="cards" id="cards"></div>
+<h2>3. Trajectories</h2>
+<div class="charts">
+<div class="ch"><b>Population, log₁₀ cells/mL</b><canvas id="c1"></canvas></div>
+<div class="ch"><b>Engagement e(t) and scaled concentrations</b><canvas id="c2"></canvas></div>
+<div class="ch"><b>Loss hazard 𝒦(t) against critical hazard 𝒦*</b><canvas id="c3"></canvas></div>
+<div class="ch"><b>Excess kill EK(t) = ln N_null − ln N_obs</b><canvas id="c4"></canvas></div>
+</div>
+<h2>4. Internal consistency checks</h2>
+<p class="sm">Each check recomputes a closed-form result of the manuscript numerically.</p>
+<ul id="chk"></ul>
+<h2>5. Assumptions and scope</h2>
+<ul class="sm">
+<li>Solid line: mean-field ODE (Eq. 3) with hazard from Eqs. 8–12, integrated by RK4 (h = 0.005 h). It is exact for the mean only in the linear regime and is not meaningful below about one cell per well (Section 3.1).</li>
+<li>Thin lines: τ-leaping approximation (Δt = 0.01 h) of the five-channel Markov chain of Table S3, with the same deterministic hazard. It is an approximation to the exact chain.</li>
+<li>Growth-inhibition fractions ς are at the default 0 (purely lethal action). Each agent is a single bolus with first-order decay (Eq. 8). Initial state: all cells replicating, e(0) = 0.</li>
+<li>MIC values use Proposition 6 and apply when κX = 0. The null is φ = 0, θ = 1 with the same single-agent parameters.</li>
+<li>Resistance functional (Eqs. 28–29): lineage birth rate b = g₀(1 − c_R); death rate is the loss hazard with C_A → f_R·C_A and φ → χφ, θ unchanged. It assumes a deterministic sensitive path and lineages far from carrying capacity. Set θ = 1 to model a preparation that does not act on the mutant.</li>
+<li>t* (Eq. 34) holds in the linear engagement regime (hₑ = 1, x₀ ≪ Cₑ); the numerical peak of e(t) is shown for the general case. The bound of Proposition 9 needs constant a, θ = 1, κX = 0.</li>
+</ul>
+</main>
+<footer class="sm">SYNERGY Simulator · runs entirely in the browser, no server or external libraries.</footer>
+
+<script id="engine">
+'use strict';
+// [id, label, default, min, max, group, advanced]
+const SPEC=[
+['g0','Max. replication rate g₀ (h⁻¹)',1,1e-3,10,'Strain'],
+['N0','Inoculum N₀ (cells/mL)',500000,1,1e12,'Strain'],
+['Kc','Carrying capacity Kc (cells/mL)',1e9,10,1e13,'Strain',1],
+['sg','Entry to tolerance σ (h⁻¹)',0.02,0,10,'Strain',1],
+['rho','Return from tolerance ρ (h⁻¹)',0.1,1e-3,10,'Strain',1],
+['zeta','Tolerant relative hazard ζ, in [0,1)',0.05,0,0.999,'Strain',1],
+['kA','Antibiotic max hazard κA (h⁻¹)',3,0,100,'Antibiotic A'],
+['CA','Antibiotic half-effect CA (mg/L)',1,1e-6,1e6,'Antibiotic A'],
+['hA','Antibiotic Hill slope hA',2,0.1,10,'Antibiotic A'],
+['a0','Antibiotic dose a₀ (mg/L)',0.5,0,1e6,'Antibiotic A'],
+['tA','Antibiotic dosing time (h)',0,0,200,'Antibiotic A'],
+['la','Antibiotic decay λa (h⁻¹)',0.02,0,10,'Antibiotic A',1],
+['x0','Preparation dose x₀ (mg/L)',100,0,1e6,'Plant preparation X'],
+['tX','Preparation dosing time (h)',0,0,200,'Plant preparation X'],
+['lx','Preparation decay λx (h⁻¹)',0.02,0,10,'Plant preparation X',1],
+['kX','Preparation own max hazard κX (h⁻¹)',0,0,100,'Plant preparation X',1],
+['CX','Preparation own half-effect CX (mg/L)',100,1e-6,1e6,'Plant preparation X',1],
+['hX','Preparation own Hill slope hX',1,0.1,10,'Plant preparation X',1],
+['phi','Potency φ (ln fold-change in antibiotic potency)',1,-10,10,'Interaction axes'],
+['th','Efficacy θ (hazard multiplier)',1,0.01,100,'Interaction axes'],
+['tau','Kinetics τ (h)',3,0.05,200,'Interaction axes'],
+['Ce','Half-engagement Cₑ (mg/L)',50,1e-6,1e6,'Interaction axes'],
+['he','Engagement slope hₑ',1,0.1,10,'Interaction axes',1],
+['mu','Mutation probability per division μ',1e-9,0,1,'Resistance',1],
+['fR','Resistance fold f_R (× C_A)',8,0.01,1e6,'Resistance',1],
+['chi','Potentiation transfer to mutant χ, in [0,1]',0,0,1,'Resistance',1],
+['cR','Mutant growth cost c_R, in [0,1)',0,0,0.999,'Resistance',1],
+['Om','Well volume Ω (mL)',0.2,1e-6,1e6,'Resistance',1],
+['T','Horizon T (h)',48,1,200,'Simulation'],
+['nrep','Stochastic replicates',5,0,20,'Simulation',1],
+['seed','Random seed',1,0,1e9,'Simulation',1]];
+const f=v=>Number.isFinite(v)?String(Math.abs(v)>=1e5||(Math.abs(v)<1e-3&&v!==0)?v.toExponential(3):+v.toPrecision(4)):'—';
+const H=(u,C,h)=>u<=0?0:1/(1+Math.pow(C/u,h));
+function Kstar(P){const g=P.g0,r=P.rho,z=P.zeta;if(z<=0)return g;const b=r+z*P.sg-z*g,d=Math.sqrt(b*b+4*z*g*r);return b>=0?2*g*r/(b+d):(d-b)/(2*z);}
+const G=(P,K)=>K+P.sg*P.zeta*K/(P.rho+P.zeta*K);
+function domEig(P,K){const a=P.g0-K-P.sg,d=-P.rho-P.zeta*K,tr=a+d,det=a*d-P.sg*P.rho;return(tr+Math.sqrt(tr*tr-4*det))/2;}
+function haz(P,a,x,e,phi,th,fR){const oA=H(a*Math.exp(phi*e),P.CA*fR,P.hA),oX=H(x,P.CX,P.hX);return(P.kA*oA+P.kX*oX)*(1+(th-1)*e*oA);}
+const Wstep=(W,b,be,dt)=>Math.abs(be)<1e-12?W+b*dt:(W-b/be)*Math.exp(-be*dt)+b/be;
+function sim(P,phi,th){
+ const dt=0.005,n=Math.round(P.T/dt),R={n,dt};['S','P','e','K','a','x'].forEach(k=>R[k]=new Float64Array(n+1));
+ const F=(t,y)=>{const a=t>=P.tA-1e-9?P.a0*Math.exp(-P.la*(t-P.tA)):0,x=t>=P.tX-1e-9?P.x0*Math.exp(-P.lx*(t-P.tX)):0,K=haz(P,a,x,y[2],phi,th,1),g=P.g0*Math.max(0,1-(y[0]+y[1])/P.Kc);
+  return[(g-K-P.sg)*y[0]+P.rho*y[1],P.sg*y[0]-(P.rho+P.zeta*K)*y[1],(H(x,P.Ce,P.he)-y[2])/P.tau,K,a,x];};
+ let y=[P.N0,0,0];
+ for(let i=0;i<=n;i++){const t=i*dt,k1=F(t,y);R.S[i]=y[0];R.P[i]=y[1];R.e[i]=y[2];R.K[i]=k1[3];R.a[i]=k1[4];R.x[i]=k1[5];if(i===n)break;
+  const k2=F(t+dt/2,y.map((v,j)=>v+dt/2*k1[j])),k3=F(t+dt/2,y.map((v,j)=>v+dt/2*k2[j])),k4=F(t+dt,y.map((v,j)=>v+dt*k3[j]));
+  y=y.map((v,j)=>Math.max(0,v+dt/6*(k1[j]+2*k2[j]+2*k3[j]+k4[j])));}
+ return R;}
+function engage(Q,x0,lx,T,dt){const n=Math.round(T/dt),E=new Float64Array(n+1),fn=(t,e)=>(H(x0*Math.exp(-lx*t),Q.Ce,Q.he)-e)/Q.tau;let e=0;
+ for(let i=0;i<n;i++){E[i]=e;const t=i*dt,k1=fn(t,e),k2=fn(t+dt/2,e+dt/2*k1),k3=fn(t+dt/2,e+dt/2*k2),k4=fn(t+dt,e+dt*k3);e+=dt/6*(k1+2*k2+2*k3+k4);}
+ E[n]=e;return E;}
+function resist(P,R,phi,th){const n=R.n,dt=R.dt,b=P.g0*(1-P.cR),D=new Float64Array(n+1),m=i=>P.mu*P.g0*Math.max(0,1-(R.S[i]+R.P[i])/P.Kc)*R.S[i]*P.Om;
+ for(let i=0;i<=n;i++)D[i]=haz(P,R.a[i],R.x[i],R.e[i],P.chi*phi,th,P.fR);
+ let W=1,pr=m(n),L=0;for(let i=n;i>0;i--){W=Wstep(W,b,b-(D[i]+D[i-1])/2,dt);const q=m(i-1)/W;L+=0.5*dt*(pr+q);pr=q;}return L;}
+function stoch(P,R,seed){let a=seed>>>0;const u=()=>{let t=a+=0x6D2B79F5;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296;};
+ const po=l=>{if(l<=0)return 0;if(l<30){const L=Math.exp(-l);let k=0,p=1;do{k++;p*=u();}while(p>L);return k-1;}const z=Math.sqrt(-2*Math.log(u()+1e-300))*Math.cos(6.283185307179586*u());return Math.max(0,Math.round(l+Math.sqrt(l)*z));};
+ let nS=Math.max(1,Math.round(P.N0*P.Om)),nP=0;const dt=0.01,m=Math.floor(R.n/2),t=[],y=[];
+ for(let k=0;k<=m;k++){if(k%10===0){t.push(k*dt);y.push(Math.log10((nS+nP)/P.Om));}if(k===m)break;
+  const K=R.K[2*k],g=P.g0*Math.max(0,1-(nS+nP)/P.Om/P.Kc),r1=po(g*nS*dt),r2=po(K*nS*dt),r3=po(P.sg*nS*dt),r4=po(P.rho*nP*dt),r5=po(P.zeta*K*nP*dt);
+  nS=Math.max(0,nS+r1-r2-r3+r4);nP=Math.max(0,nP+r3-r4-r5);}
+ return{t,y,ext:nS+nP===0};}
+function benchChecks(){const o=[];
+ let E=engage({Ce:1e6,he:1,tau:3},1,0.1,60,0.005),k=0;E.forEach((v,i)=>{if(v>E[k])k=i;});const ts=3*Math.log(0.3)/(0.3-1);
+ o.push(['Prop. 16: numerical engagement peak equals t* (τ=3 h, λx=0.1 h⁻¹; manuscript value 5.16 h)',Math.abs(k*0.005-ts)<0.011,`numerical ${f(k*0.005)} h, Eq. 34 ${f(ts)} h`]);
+ E=engage({Ce:10,he:2,tau:3},20,0.1,400,0.01);let s=0;E.forEach(v=>s+=v);s=0.01*(s-(E[0]+E[E.length-1])/2);const cf=Math.log(5)/0.2;
+ o.push(['Prop. 9: AUEC by integration equals Eq. 18 (x₀=20, Cₑ=10, hₑ=2, λx=0.1)',Math.abs(s-cf)/cf<1e-4,`numerical ${f(s)}, Eq. 18 ${f(cf)}`]);
+ let W=1;for(let i=0;i<6000;i++)W=Wstep(W,1,0.6,0.01);
+ o.push(['Prop. 13: constant rates give lineage survival 1 − d/b (b=1, d=0.4)',Math.abs(1/W-0.6)<1e-9,`p = ${f(1/W)}, 1 − d/b = 0.6`]);return o;}
+let BENCH=null;
+function checks(P){const Ks=Kstar(P),o=[],Gs=G(P,Ks);
+ o.push(['Theorem 1(i): 𝒢(𝒦*) = g₀ for the current strain',Math.abs(Gs-P.g0)<1e-9*Math.max(1,P.g0),`𝒢(𝒦*) = ${f(Gs)}, g₀ = ${f(P.g0)}`]);
+ const r0=domEig(P,Ks),ra=domEig(P,0.9*Ks),rb=domEig(P,1.1*Ks);
+ o.push(['Lemmas S1–S2: dominant eigenvalue is 0 at 𝒦* and changes sign across it',Math.abs(r0)<1e-9*Math.max(1,P.g0)&&ra>0&&rb<0,`r(0.9𝒦*) = ${f(ra)}, r(𝒦*) = ${f(r0)}, r(1.1𝒦*) = ${f(rb)}`]);
+ const K=0.3*Ks,Nd=P.Kc*(1-G(P,K)/P.g0),ra2=P.sg/(P.rho+P.zeta*K),Sd=Nd/(1+ra2),Pd=ra2*Sd,gd=P.g0*(1-Nd/P.Kc),res=Math.abs((gd-K-P.sg)*Sd+P.rho*Pd)+Math.abs(P.sg*Sd-(P.rho+P.zeta*K)*Pd);
+ o.push(['Theorem 1(iii): positive equilibrium of Eq. 7 satisfies Eq. 3 (𝒦 = 0.3𝒦*)',res<1e-9*Math.max(1,P.g0*Nd),`N† = ${f(Nd)} cells/mL, residual ${f(res)}`]);
+ return o.concat(BENCH||(BENCH=benchChecks()));}
+</script>
+
+<script id="ui">
+const $=id=>document.getElementById(id),GROUPS=[...new Set(SPEC.map(s=>s[5]))];let PL=[],LAST=null;
+function build(){let h='';const fd=s=>`<label>${s[1]}<input id="${s[0]}" type="number" step="any" value="${s[2]}"></label>`;
+ GROUPS.forEach(g=>{const e=SPEC.filter(s=>s[5]===g&&!s[6]).map(fd).join(''),a=SPEC.filter(s=>s[5]===g&&s[6]).map(fd).join('');
+  h+=`<fieldset><legend>${g}</legend><div class="g">${e}</div>${a?`<details><summary>Advanced parameters</summary><div class="g">${a}</div></details>`:''}</fieldset>`;});
+ $('form').innerHTML=h;}
+function getP(){const P={},err=[];SPEC.forEach(s=>{const v=parseFloat($(s[0]).value);P[s[0]]=v;if(!Number.isFinite(v)||v<s[3]||v>s[4])err.push(`${s[1]} must be between ${s[3]} and ${s[4]}.`);});
+ if(!err.length){if(P.N0>=P.Kc)err.push('N₀ must be below Kc.');if(P.tA>P.T||P.tX>P.T)err.push('Dosing times must not exceed T.');}return{P,err};}
+function tk(a,b){const s=(b-a)/5,p=Math.pow(10,Math.floor(Math.log10(s))),q=s/p,st=(q<1.5?1:q<3.5?2:q<7.5?5:10)*p,o=[];for(let v=Math.ceil(a/st)*st;v<=b+1e-9*st;v+=st)o.push(+v.toPrecision(12));return o;}
+function plot(id,S,o){const cv=$(id),d=window.devicePixelRatio||1,r=cv.getBoundingClientRect(),w=r.width,h=r.height;cv.width=w*d;cv.height=h*d;const c=cv.getContext('2d');c.scale(d,d);
+ const cs=getComputedStyle(document.documentElement),mu=cs.getPropertyValue('--mut'),gr=cs.getPropertyValue('--grid'),m={l:54,r:12,t:26,b:36};let y0=o.ymin,y1=o.ymax;
+ if(y0==null||y1==null){let lo=Infinity,hi=-Infinity;S.forEach(s=>s.y.forEach(v=>{if(isFinite(v)){lo=Math.min(lo,v);hi=Math.max(hi,v);}}));(o.hl||[]).forEach(q=>{lo=Math.min(lo,q.y);hi=Math.max(hi,q.y);});const pd=(hi-lo)*0.06||1;if(y0==null)y0=lo-pd;if(y1==null)y1=hi+pd;}
+ if(!(y1>y0))y1=y0+1;const X=v=>m.l+v/o.xmax*(w-m.l-m.r),Y=v=>h-m.b-(Math.min(Math.max(v,y0),y1)-y0)/(y1-y0)*(h-m.t-m.b);
+ c.font='11px system-ui';c.fillStyle=mu;c.strokeStyle=gr;c.lineWidth=1;c.textAlign='right';
+ tk(y0,y1).forEach(v=>{c.beginPath();c.moveTo(m.l,Y(v));c.lineTo(w-m.r,Y(v));c.stroke();c.fillText(+v.toPrecision(4),m.l-5,Y(v)+4);});
+ c.textAlign='center';tk(0,o.xmax).forEach(v=>{c.beginPath();c.moveTo(X(v),m.t);c.lineTo(X(v),h-m.b);c.stroke();c.fillText(v,X(v),h-m.b+14);});
+ c.fillText('time (h)',(w+m.l)/2,h-6);
+ (o.hl||[]).forEach(q=>{c.strokeStyle=mu;c.setLineDash([2,3]);c.beginPath();c.moveTo(m.l,Y(q.y));c.lineTo(w-m.r,Y(q.y));c.stroke();c.setLineDash([]);c.textAlign='left';c.fillText(q.l,m.l+4,Y(q.y)-3);});
+ S.forEach(s=>{c.strokeStyle=s.c;c.globalAlpha=s.a||1;c.lineWidth=s.w||1.5;c.setLineDash(s.dash||[]);c.beginPath();let st=false;
+  s.y.forEach((v,i)=>{if(!Number.isFinite(v)&&v!==-Infinity)return;const px=X(s.x[i]),py=Y(v);st?c.lineTo(px,py):c.moveTo(px,py);st=true;});c.stroke();});
+ c.globalAlpha=1;c.setLineDash([]);let lx=m.l;c.textAlign='left';S.filter(s=>s.l).forEach(s=>{c.fillStyle=s.c;c.fillRect(lx,8,12,3);c.fillStyle=mu;c.fillText(s.l,lx+16,13);lx+=24+c.measureText(s.l).width;});}
+function draw(){PL.forEach(p=>plot(...p));}
+const card=(l,v,n)=>`<div class="card">${l}<b>${v}</b><span>${n||''}</span></div>`;
+function run(){const{P,err}=getP();$('err').textContent=err.join(' ');if(err.length)return;P.nrep=Math.round(P.nrep);
+ const R=sim(P,P.phi,P.th),Z=sim(P,0,1),n=R.n,dt=R.dt,LN=Math.LN10,ln=(Q,i)=>Math.log(Math.max(Q.S[i]+Q.P[i],1e-300)),ek=new Float64Array(n+1);
+ let mx=0,T2=NaN;for(let i=0;i<=n;i++){ek[i]=ln(Z,i)-ln(R,i);if(ek[i]>mx)mx=ek[i];if(isNaN(T2)&&ek[i]>=2*LN)T2=i*dt;}
+ const Ks=Kstar(P),mic0=P.kA>Ks?P.CA*Math.pow(Ks/(P.kA-Ks),1/P.hA):NaN,einf=H(P.x0,P.Ce,P.he),Phi=Math.exp(P.phi*einf);let micX=NaN;
+ if(P.kX===0&&P.th>=0.5&&isFinite(mic0)){const fn=a=>{const o=H(a*Phi,P.CA,P.hA);return P.kA*o*(1+(P.th-1)*einf*o)-Ks;};let lo=0,hi=mic0;while(fn(hi)<0&&hi<1e9)hi*=2;
+  if(fn(hi)>=0){for(let i=0;i<200;i++){const md=(lo+hi)/2;fn(md)<0?lo=md:hi=md;}micX=(lo+hi)/2;}}
+ const above=Q=>{let c=0;for(let i=0;i<n;i++)if(Q.K[i]>Ks)c++;return c*dt;},RT=8.314*310.15/1000;
+ const lt=P.lx*P.tau,ts=P.lx>0?(Math.abs(lt-1)<1e-9?P.tau:P.tau*Math.log(lt)/(lt-1)):NaN;
+ const E=engage(P,P.x0,P.lx,300,0.01);let kp=0;E.forEach((v,i)=>{if(v>E[kp])kp=i;});const tpk=P.lx>0&&P.x0>0&&kp<E.length-5?kp*0.01:NaN;
+ const lam=Math.log(1+Math.pow(P.x0/P.Ce,P.he)),auec=P.lx>0?lam/(P.lx*P.he):NaN;let b9='';
+ if(P.lx>0&&P.la===0&&P.th===1&&P.kX===0&&P.phi>0)b9=P.kA*P.hA*P.phi*lam<8*P.lx*P.he*LN?'Prop. 9: the 2-log criterion cannot be met at any read time.':'Prop. 9 bound does not exclude a 2-log verdict.';
+ const Lo=resist(P,R,P.phi,P.th),Ln=resist(P,Z,0,1),reps=[];for(let r=0;r<P.nrep;r++)reps.push(stoch(P,R,P.seed+r));
+ $('cards').innerHTML=[
+ card('Critical hazard 𝒦* (h⁻¹)',f(Ks),'MIC threshold, Eq. 6; transcritical bifurcation (Theorem 1)'),
+ card('MIC of A alone (mg/L)',f(mic0),isFinite(mic0)?'Eq. 13':'κA ≤ 𝒦*: antibiotic cannot inhibit alone'),
+ card('MIC of A with preparation (mg/L)',f(micX),isFinite(micX)?'Steady engagement at x₀ (Prop. 6)':'Needs κX = 0, θ ≥ ½ and a finite MIC'),
+ card('FIC of A = MIC(x)/MIC(0)',f(micX/mic0),`Φss = ${f(Phi)}; Φmax = e^φ = ${f(Math.exp(P.phi))}; e∞ = ${f(einf)}`),
+ card('Free-energy equivalents (kJ/mol, 37 °C)',`RTφ = ${f(RT*P.phi)}; RT ln θ = ${f(RT*Math.log(P.th))}`,'Eqs. 20–21; valid only under the stated physical assumptions'),
+ card('Optimal antibiotic delay after bolus (h)',`t* = ${f(ts)}; peak of e(t) = ${f(tpk)}`,'Eq. 34 (linear regime); numerical peak for the chosen hₑ, Cₑ, x₀'),
+ card('Final log₁₀ cells/mL',`${f(ln(R,n)/LN)} (combination) vs ${f(ln(Z,n)/LN)} (null)`,'Mean-field; values below log₁₀(1/Ω) are not physical'),
+ card('Excess kill',`max EK = ${f(mx)}; first 2-log time = ${f(T2)} h`,'EK in ln units; 2-log means EK ≥ 2 ln 10 relative to the null'),
+ card('Time with 𝒦(t) > 𝒦* (h)',`${f(above(R))} (combination) vs ${f(above(Z))} (null)`,'Population declines asymptotically while 𝒦 > 𝒦*'),
+ card('Area under engagement curve',f(auec),P.lx>0?'Eq. 18 for a single decaying bolus with e₀ = 0. '+b9:'λx = 0: no decay, undefined'),
+ card('Resistance functional Λ(T)',`${f(Lo)} (combination) vs ${f(Ln)} (null)`,`P(resistance) = ${f(1-Math.exp(-Lo))} vs ${f(1-Math.exp(-Ln))} (Eq. 29)`),
+ card('Stochastic replicates extinct at T',P.nrep?`${reps.filter(r=>r.ext).length} of ${P.nrep}`:'—','Population fully eliminated in the Markov chain')].join('');
+ const ix=[];for(let i=0;i<=n;i+=10)ix.push(i);const tt=ix.map(i=>i*dt),L=Q=>ix.map(i=>ln(Q,i)/LN),lf=Math.log10(1/P.Om),C='#1f5fbf';
+ const s1=[{x:tt,y:L(Z),c:'#8a8f9a',dash:[6,4],l:'null (φ=0, θ=1)'},{x:tt,y:L(R),c:C,w:2.4,l:'SYNERGY mean-field'}];reps.forEach((r,i)=>s1.push({x:r.t,y:r.y,c:C,a:0.35,w:1,l:i?'':'stochastic'}));
+ PL=[['c1',s1,{xmax:P.T,ymin:lf-1,hl:[{y:lf,l:'1 cell per well'}]}],
+ ['c2',[{x:tt,y:ix.map(i=>R.e[i]),c:C,w:2,l:'e(t)'},{x:tt,y:ix.map(i=>P.a0>0?R.a[i]/P.a0:0),c:'#d97706',l:'a/a₀'},{x:tt,y:ix.map(i=>P.x0>0?R.x[i]/P.x0:0),c:'#15803d',l:'x/x₀'}],{xmax:P.T,ymin:0,ymax:1.05}],
+ ['c3',[{x:tt,y:ix.map(i=>Z.K[i]),c:'#8a8f9a',dash:[6,4],l:'null 𝒦'},{x:tt,y:ix.map(i=>R.K[i]),c:C,w:2.2,l:'SYNERGY 𝒦'}],{xmax:P.T,ymin:0,hl:[{y:Ks,l:'𝒦*'}]}],
+ ['c4',[{x:tt,y:ix.map(i=>ek[i]),c:C,w:2.2,l:'EK(t)'}],{xmax:P.T,ymin:0,ymax:Math.max(mx*1.08,2*LN*1.15),hl:[{y:2*LN,l:'2 log₁₀ = 2 ln 10'}]}]];
+ draw();LAST={P,R,Z,ek};
+ $('chk').innerHTML=checks(P).map(c=>`<li><b class="${c[1]?'ok':'no'}">${c[1]?'PASS':'FAIL'}</b> ${c[0]}<br><span class="sm">${c[2]}</span></li>`).join('');}
+function init(){build();let tm;document.addEventListener('input',()=>{clearTimeout(tm);tm=setTimeout(run,250);});window.addEventListener('resize',draw);
+ $('rst').onclick=()=>{SPEC.forEach(s=>$(s[0]).value=s[2]);run();};
+ $('csv').onclick=()=>{if(!LAST)return;const{P,R,Z,ek}=LAST;let s='t_h,S,P,N,e,Phi,K,a_mgL,x_mgL,N_null,EK\n';
+  for(let i=0;i<=R.n;i+=10)s+=[i*R.dt,R.S[i],R.P[i],R.S[i]+R.P[i],R.e[i],Math.exp(P.phi*R.e[i]),R.K[i],R.a[i],R.x[i],Z.S[i]+Z.P[i],ek[i]].join(',')+'\n';
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([s],{type:'text/csv'}));a.download='synergy_trajectory.csv';a.click();};run();}
+window.addEventListener('DOMContentLoaded',init);
+</script>
+</body></html>
